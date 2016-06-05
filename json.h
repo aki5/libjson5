@@ -34,6 +34,7 @@ enum {
 void jsonsetname(char *filename);
 
 int jsonwalk(JsonRoot *root, int off, char *name);
+int jsonindex(JsonRoot *root, int off, int index);
 int jsonparse(JsonRoot *root, char *buf, int len);
 
 char *jsoncstr(JsonRoot *root, int off);
