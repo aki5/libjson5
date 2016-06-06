@@ -69,15 +69,15 @@ isbreak(int c)
 static int
 issymbol(char *buf, int len)
 {
-	int i;
-	static char *symbols[] = {
-		"true",
-		"false",
-		"null"
-	};
-	for(i = 0; i < nelem(symbols); i++)
-		if(memcmp(buf, symbols[i], len) == 0)
+	if(len == 4){
+		if(memcmp(buf, "true", 4) == 0)
 			return 1;
+		if(memcmp(buf, "null", 4) == 0)
+			return 1;
+	} else if(len == 5){
+		if(memcmp(buf, "false", 5) == 0)
+			return 1;
+	}
 	return 0;
 }
 
@@ -216,7 +216,7 @@ again:
 			}
 			*offp = str+1-buf;
 			*lenp = len-1;
-			if(issymbol(*tokp, str-*tokp))
+			if(issymbol(*tokp, str-*tokp+1))
 				return JsonSymbol;
 			return -1; // not a symbol, means error!
 		}
