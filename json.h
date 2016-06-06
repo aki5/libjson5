@@ -30,11 +30,9 @@ enum {
 	JsonSymbol = 'a',
 };
 
-//int jsonparse(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp);
 void jsonsetname(char *filename);
-
 int jsonwalk(JsonRoot *root, int off, char *name);
 int jsonindex(JsonRoot *root, int off, int index);
 int jsonparse(JsonRoot *root, char *buf, int len);
-
 char *jsoncstr(JsonRoot *root, int off);
+void jsonfree(JsonRoot *root);

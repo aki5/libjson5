@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include "json.h"
 
+#define nelem(x) (sizeof(x)/sizeof(x[0]))
+
 static __thread char *jsonfile = "";
 static __thread int jsonline;
 
@@ -61,6 +63,21 @@ isbreak(int c)
 	case '\t': case '\n': case '\v': case '\f': case '\r': case ' ':
 		return 1;
 	}
+	return 0;
+}
+
+static int
+issymbol(char *buf, int len)
+{
+	int i;
+	static char *symbols[] = {
+		"true",
+		"false",
+		"null"
+	};
+	for(i = 0; i < nelem(symbols); i++)
+		if(memcmp(buf, symbols[i], len) == 0)
+			return 1;
 	return 0;
 }
 
@@ -199,7 +216,9 @@ again:
 			}
 			*offp = str+1-buf;
 			*lenp = len-1;
-			return JsonSymbol;
+			if(issymbol(*tokp, str-*tokp))
+				return JsonSymbol;
+			return -1; // not a symbol, means error!
 		}
 	}
 	// set them here too, so that we don't re-read the last character indefinitely
@@ -448,6 +467,14 @@ jsonparse(JsonRoot *root, char *buf, int len)
 	root->str.cap = len;
 
 	return 0;
+}
+
+void
+jsonfree(JsonRoot *root)
+{
+	if(root->ast.buf != NULL)
+		free(root->ast.buf);
+	memset(root, 0, sizeof root[0]);
 }
 
 int
