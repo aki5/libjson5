@@ -587,19 +587,20 @@ int
 jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 {
 	JsonAst *docast;
-	int typ, scmoff2;
+	int scmtyp, scmoff2;
 
 	docast = docroot->ast.buf;
-	typ = scmtype(scmroot, jsonwalk(scmroot, scmoff, "type", -1));
-	if(docast[docoff].type != typ)
+	scmtyp = scmtype(scmroot, jsonwalk(scmroot, scmoff, "type", -1));
+	if(docast[docoff].type != scmtyp)
 		return -1;
 
-	if(typ == JsonArray){
-		// walk schema to items, check every array item against schema item
+	if(scmtyp == JsonArray){
+		// walk schema to items,
 		scmoff = jsonwalk(scmroot, scmoff, "items", -1);
 		if(scmoff == -1)
 			return -1;
 		docoff++;
+		// check every array item against schema item
 		while(docoff < docast->len){
 			if(docast[docoff].type == ']')
 				break;
@@ -609,12 +610,13 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 		}
 		if(docoff == docast->len)
 			return -1;
-	} else if(typ == JsonObject){
-		// walk schema to properties, check every doc property against corresponding schema property
+	} else if(scmtyp == JsonObject){
+		// walk schema to properties,
 		scmoff = jsonwalk(scmroot, scmoff, "properties", -1);
 		if(scmoff == -1)
 			return -1;
 		docoff++;
+		// check every doc property against corresponding schema property
 		while(docoff < docast->len){
 			if(docast[docoff].type == '}')
 				break;
