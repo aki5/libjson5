@@ -21,13 +21,17 @@ when the reference behaves as if the reference object was replaced
 with JSON data in the referred location. For example
 
 ```
-{ "$ref": "http://example.com/example.json#/foo/bar" }
+{ "$ref": "#/foo/bar" }
 ```
+
+Only references within the same document can be interpreted by standalone libjson5, due to lack of interest in choosing a specific http access library or an i/o framework.
 
 ## JSON Schema
 
 A JSON schema is a JSON object describing types and properties of
-another JSON object, for example
+another JSON object. The type checker in libjson5 requires all properties and items to be declared in the schema, and checks for their types. The type checker does not implement uniquenes, required fields or format checks for the time being, but I welcome contributions.
+
+An example containing just about everything supported in libjson5 is below
 
 ```
 {
