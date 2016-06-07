@@ -478,7 +478,7 @@ jsonfree(JsonRoot *root)
 }
 
 int
-jsonwalk(JsonRoot *root, int off, char *name, int keylen)
+jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
 {
 	JsonAst *ast;
 	char *buf;
@@ -495,8 +495,6 @@ jsonwalk(JsonRoot *root, int off, char *name, int keylen)
 		return -1;
 	}
 
-	if(keylen == -1)
-		keylen = strlen(name);
 	i = off+1;
 	for(;;){
 		if(ast[i].type == '}')
@@ -515,6 +513,12 @@ jsonwalk(JsonRoot *root, int off, char *name, int keylen)
 		// next key.. or end.
 	}
 	return -1; // not found.
+}
+
+int
+jsonwalk(JsonRoot *root, int off, char *name)
+{
+	return jsonwalk2(root, off, name, strlen(name));
 }
 
 int
@@ -590,13 +594,13 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 	int scmtyp, scmoff2;
 
 	docast = docroot->ast.buf;
-	scmtyp = scmtype(scmroot, jsonwalk(scmroot, scmoff, "type", -1));
+	scmtyp = scmtype(scmroot, jsonwalk(scmroot, scmoff, "type"));
 	if(docast[docoff].type != scmtyp)
 		return -1;
 
 	if(scmtyp == JsonArray){
 		// walk schema to items,
-		scmoff = jsonwalk(scmroot, scmoff, "items", -1);
+		scmoff = jsonwalk(scmroot, scmoff, "items");
 		if(scmoff == -1)
 			return -1;
 		docoff++;
@@ -612,7 +616,7 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 			return -1;
 	} else if(scmtyp == JsonObject){
 		// walk schema to properties,
-		scmoff = jsonwalk(scmroot, scmoff, "properties", -1);
+		scmoff = jsonwalk(scmroot, scmoff, "properties");
 		if(scmoff == -1)
 			return -1;
 		docoff++;
@@ -622,7 +626,7 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 				break;
 			if(docast[docoff].type != JsonString || docast[docoff].len < 2)
 				return -1;
-			scmoff2 = jsonwalk(scmroot, scmoff, docroot->str.buf+docast[docoff].off+1, docast[docoff].len-2);
+			scmoff2 = jsonwalk2(scmroot, scmoff, docroot->str.buf+docast[docoff].off+1, docast[docoff].len-2);
 			if(scmoff2 == -1)
 				return -1;
 			docoff = docast[docoff].next;
