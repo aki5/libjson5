@@ -30,10 +30,11 @@ enum {
 	JsonSymbol = 'a',
 };
 
+int jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff);
+char *jsoncstr(JsonRoot *root, int off);
+void jsonfree(JsonRoot *root);
+int jsonindex(JsonRoot *root, int off, int index);
+int jsonparse(JsonRoot *root, char *buf, int len);
 void jsonsetname(char *filename);
 int jsonwalk(JsonRoot *root, int off, char *name);
 int jsonwalk2(JsonRoot *root, int off, char *name, int namelen);
-int jsonindex(JsonRoot *root, int off, int index);
-int jsonparse(JsonRoot *root, char *buf, int len);
-char *jsoncstr(JsonRoot *root, int off);
-void jsonfree(JsonRoot *root);
