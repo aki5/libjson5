@@ -1,5 +1,5 @@
 
-CFLAGS=-I.
+CFLAGS=-I. -O2 -W -Wall
 
 tests/json_test: tests/json_test.o json.o
 	$(CC) -o $@ tests/json_test.o json.o
