@@ -1,9 +1,13 @@
 
 [![Build Status](https://travis-ci.org/aki5/libjson5.svg?branch=master)](https://travis-ci.org/aki5/libjson5)
 
-# Libjson5 - a JSON parser for me, by me
+# Libjson5 - a tiny JSON parser with type checking
 
-This is the fifth JSON parser library I've written in C. The previous versions have been lost in acquisitions etc, so I'm making this one open source. It is intended to be part of a bridge between my hobby obsessions and web browsers.
+This is the fifth JSON parser library I've written in C. The previous versions have been lost as closed source, so I'm making this one open. It is intended to be part of a bridge between some of my hobby obsessions and web browsers.
+
+A distinguishing feature of libjson5 is that it supports type checking against a partially supported JSON schema.
+
+Using a schema can give higher confidence that data stored in a key-value store satisfies some basic structural requirements.
 
 The recognized language is standard JSON, with support for the following extras
 
@@ -32,7 +36,9 @@ Only references within the same document can be interpreted by standalone libjso
 ## JSON Schema
 
 A JSON schema is a JSON object describing types and properties of
-another JSON object. The type checker in libjson5 requires all properties and items to be declared in the schema, and checks for their types. The type checker does not implement uniquenes, required fields or format checks for the time being, but I welcome contributions.
+another JSON object. The type checker in libjson5 requires all properties and items to be declared in the schema, and checks for their types. 
+
+In addition to basic type checking, the type checker checks for presence of "required" fields if specified in the schema. Other features of the json-schema are not implemented at the moment.
 
 An example containing just about everything supported in libjson5 is below
 
