@@ -1,3 +1,6 @@
+
+[![Build Status](https://travis-ci.org/aki5/libjson5.svg?branch=master)](https://travis-ci.org/aki5/libjson5)
+
 # Libjson5 - a JSON parser for me, by me
 
 This is the fifth JSON parser library I've written in C. The previous versions have been lost in acquisitions etc, so I'm making this one open source. It is intended to be part of a bridge between my hobby obsessions and web browsers.
