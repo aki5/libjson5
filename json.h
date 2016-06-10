@@ -27,7 +27,9 @@ enum {
 	JsonObject = '{',
 	JsonString = '"',
 	JsonNumber = '0',
+	JsonInteger = '1',
 	JsonSymbol = 'a',
+	JsonReference = '#', // a resolved "$ref" object, 'off' field for this AST type holds the destination
 };
 
 int jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff);
@@ -35,6 +37,7 @@ char *jsoncstr(JsonRoot *root, int off);
 void jsonfree(JsonRoot *root);
 int jsonindex(JsonRoot *root, int off, int index);
 int jsonparse(JsonRoot *root, char *buf, int len);
+int jsonrefs(JsonRoot *docroot);
 void jsonsetname(char *filename);
 int jsonwalk(JsonRoot *root, int off, char *name);
 int jsonwalk2(JsonRoot *root, int off, char *name, int namelen);

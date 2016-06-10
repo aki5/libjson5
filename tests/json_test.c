@@ -108,6 +108,10 @@ main(int argc, char *argv[])
 	}
 
 	if(scm != NULL){
+		if(jsonrefs(&scmroot) == -1){
+			fprintf(stderr, "jsonrefs: fail for schema\n");
+			exit(1);
+		}
 		if(jsoncheck(&docroot, 0, &scmroot, 0) == -1){
 			fprintf(stderr, "type checking failed for '%s'\n", path);
 			exit(1);

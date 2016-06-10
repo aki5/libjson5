@@ -18,6 +18,7 @@ isterminal(int c)
 	case JsonNumber:
 	case JsonString:
 	case JsonSymbol:
+	case JsonInteger:
 		return 1;
 	}
 	return 0;
@@ -88,6 +89,7 @@ jsonlex(char *buf, int *offp, int *lenp, char **tokp)
 {
 	char *str;
 	int len, qch;
+	int isinteger;
 
 	str = buf + *offp;
 	len = *lenp;
@@ -101,6 +103,8 @@ again:
 	}
 	*tokp = str;
 	if(len > 0){
+		// a number is an integer unless it has '.' or 'E' in it.
+		isinteger = 1;
 		switch(*str){
 
 		// c and c++ style comments, not standard either
@@ -155,7 +159,9 @@ again:
 			return *str;
 
 		// it may be number, look at the next character and decide.
-		case '+': case '-': case '.':
+		case '.':
+			isinteger = 0;
+		case '+': case '-':
 			if(len < 2)
 				goto caseself;
 			if(str[1] < '0' || str[1] > '9')
@@ -167,13 +173,17 @@ again:
 		// the number matching algorithm is a bit fast and loose, but it does the business.
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			while(len > 1 && isnumber(str[1])){
+			while(len > 1){
+				if(!isnumber(str[1]))
+					break;
+				if(str[1] == '.' || str[1] == 'e' || str[1] == 'E')
+					isinteger = 0;
 				str++;
 				len--;
 			}
 			*offp = str+1-buf;
 			*lenp = len-1;
-			return JsonNumber;
+			return isinteger ? JsonInteger : JsonNumber;
 
 		// nonstandard single quote strings..
 		case '\'':
@@ -380,6 +390,7 @@ jsonany(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
 	case ']': case '}': case ':': case ',':
 		return lt;
 	case JsonNumber:
+	case JsonInteger:
 	case JsonString:
 	case JsonSymbol:
 		patch = *astoff;
@@ -500,15 +511,26 @@ jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
 		if(ast[i].type == '}')
 			break;
 		if(ast[i].type != JsonString){
-			fprintf(stderr, "astdump: bad type '%c', expecting string for map key", ast[i].type);
+			fprintf(stderr, "jsonwalk: bad type '%c', expecting string for map key", ast[i].type);
 			fwrite(buf+ast[i].off, ast[i].len, 1, stderr);
 			fprintf(stderr, "\n");
 			return -1;
 		}
 		if(keylen == ast[i].len-2 && !memcmp(buf + ast[i].off+1, name, keylen))
 			return ast[i].next;
+
 		i = ast[i].next;
-		// value
+
+		// if value is a resolved reference, go to destination, which is stored
+		// in the off field because 'next' chains the higher level object or array.
+		if(ast[i].type == JsonReference)
+			i = ast[i].off;
+		// don't loop since that can get stuck in a cycle
+		if(ast[i].type == JsonReference){
+			fprintf(stderr, "jsonwalk: cascading reference.\n");
+			return -1;
+		}
+
 		i = ast[i].next;
 		// next key.. or end.
 	}
@@ -554,6 +576,54 @@ jsonindex(JsonRoot *root, int off, int index)
 	return i;
 }
 
+// walk a json-ptr
+int
+jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen)
+{
+	char *p;
+
+	while((p = memchr(ptr, '/', ptrlen)) != NULL){
+		off = jsonwalk2(root, off, ptr, p-ptr);
+		if(off == -1){
+			fprintf(stderr, "jsonptr: could not walk %.*s\n", (int)(p-ptr), ptr);
+			return -1;
+		}
+		ptrlen -= p-ptr;
+		ptr = p;
+	}
+	return off;
+}
+
+int
+jsonrefs(JsonRoot *docroot)
+{
+	JsonAst *ast;
+	int off, off2;
+
+	ast = docroot->ast.buf;
+	for(off = 0; off < docroot->ast.len; off++){
+		if(ast[off].type == '{'){
+			off2 = jsonwalk(docroot, off, "$ref");
+			if(off2 != -1){
+				char *ref;
+				int reflen;
+
+				ref = docroot->str.buf+ast[off2].off+1;
+				reflen = ast[off2].len-2;
+				if(ref[0] != '#' || ref[1] != '/'){
+					fprintf(stderr, "jsonrefs: only local, absolute references are supported\n");
+					return -1;
+				}
+
+				// rewrite the JsonObject to a JsonReference.
+				ast[off].type = JsonReference;
+				ast[off].off = jsonptr(docroot, 0, ref+2, reflen-2);
+			}
+		}
+	}
+	return 0;
+}
+
 static int
 scmtype(JsonRoot *scmroot, int off)
 {
@@ -574,7 +644,7 @@ scmtype(JsonRoot *scmroot, int off)
 	len = ast->len - 2;
 	if(len == 7){
 		if(memcmp(buf, "integer", 7) == 0)
-			return JsonNumber;
+			return JsonInteger;
 	} else if(len == 6){
 		if(memcmp(buf, "string", 6) == 0)
 			return JsonString;
@@ -605,22 +675,12 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 		return -1;
 	}
 
+	// this is the actual type checking code, complex cases end here through recursion.
 	scmtyp = scmtype(scmroot, scmoff2);
-	if(docast[docoff].type != scmtyp){
+	if(docast[docoff].type != scmtyp && !(scmtyp == JsonNumber && docast[docoff].type == JsonInteger)){
 		fprintf(stderr, "jsoncheck: doctype %c scmtype %c\n", docast[docoff].type, scmtyp);
 		return -1;
 	}
-
-#if 0
-	if(docast[docoff].len != -1 && scmast[scmoff].len != -1){
-		fprintf(stderr, "jsoncheck: doc '%.*s' vs scm '%.*s', doctype %c scmtype %c\n",
-			docast[docoff].len, docroot->str.buf+docast[docoff].off,
-			scmast[scmoff].len, scmroot->str.buf+scmast[scmoff].off,
-			docast[docoff].type, scmtyp);
-	} else {
-		fprintf(stderr, "jsoncheck: doctype %c scmtype %c\n", docast[docoff].type, scmtyp);
-	}
-#endif
 
 	if(scmtyp == JsonArray){
 		// walk schema to items,
@@ -639,7 +699,6 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 		if(docoff == docast->len)
 			return -1;
 	} else if(scmtyp == JsonObject){
-
 
 		scmoff2 = jsonwalk(scmroot, scmoff, "required");
 		if(scmoff2 != -1){
@@ -666,6 +725,7 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 			return -1;
 		}
 
+		// to first key of the object.
 		docoff++;
 		scmoff = scmoff2;
 		// check every doc property against corresponding schema property
