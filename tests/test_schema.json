@@ -5,17 +5,8 @@
                 "id": { "type": "integer" },
                 "name": { "type": "string" },
                 "price": { "type": "number" },
-                "location": {
-                        "type": "object",
-                        "properties": {
-                                "latitude": { "type": "number" },
-                                "longitude": { "type": "number" }
-                        }
-                },
-                "counts": {
-                        "type": "array",
-                        "items": { "type": "integer" }
-                }
+                "location": { "$ref": "#/definitions/location" },
+                "counts": { "$ref": "#/definitions/intarray" }
         },
         "required": [ "id", "name", "price"],
         "definitions": {

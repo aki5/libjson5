@@ -501,6 +501,9 @@ jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
 	ast = root->ast.buf;
 	buf = root->str.buf;
 
+//	if(ast[off].type == JsonReference)
+//		off = ast[i].off;
+
 	if(ast[off].type != '{'){
 		fprintf(stderr, "jsonwalk: called on a non-object '%c'\n", ast[off].type);
 		return -1;
@@ -516,23 +519,24 @@ jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
 			fprintf(stderr, "\n");
 			return -1;
 		}
-		if(keylen == ast[i].len-2 && !memcmp(buf + ast[i].off+1, name, keylen))
-			return ast[i].next;
+		if(keylen == ast[i].len-2 && !memcmp(buf + ast[i].off+1, name, keylen)){
+			int next;
 
-		i = ast[i].next;
-
-		// if value is a resolved reference, go to destination, which is stored
-		// in the off field because 'next' chains the higher level object or array.
-		if(ast[i].type == JsonReference)
-			i = ast[i].off;
-		// don't loop since that can get stuck in a cycle
-		if(ast[i].type == JsonReference){
-			fprintf(stderr, "jsonwalk: cascading reference.\n");
-			return -1;
+			next = ast[i].next;
+			// if value is a resolved reference, go to destination, which is stored
+			// in the off field because 'next' chains the higher level object or array.
+			if(ast[next].type == JsonReference)
+				next = ast[next].off;
+			// don't loop since that can get stuck in a cycle
+			if(ast[next].type == JsonReference){
+				fprintf(stderr, "jsonwalk: cascading reference.\n");
+				return -1;
+			}
+			return next;
 		}
 
-		i = ast[i].next;
-		// next key.. or end.
+		i = ast[i].next; // to value
+		i = ast[i].next; // to next key
 	}
 	return -1; // not found.
 }
@@ -583,14 +587,19 @@ jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen)
 	char *p;
 
 	while((p = memchr(ptr, '/', ptrlen)) != NULL){
+//		fprintf(stderr, "jsonptr: walk %.*s\n", (int)(p-ptr), ptr);
 		off = jsonwalk2(root, off, ptr, p-ptr);
 		if(off == -1){
 			fprintf(stderr, "jsonptr: could not walk %.*s\n", (int)(p-ptr), ptr);
 			return -1;
 		}
-		ptrlen -= p-ptr;
-		ptr = p;
+		ptrlen -= p-ptr+1;
+		ptr = p+1;
 	}
+
+//	fprintf(stderr, "jsonptr: last walk %.*s\n", ptrlen, ptr);
+	off = jsonwalk2(root, off, ptr, ptrlen);
+
 	return off;
 }
 

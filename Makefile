@@ -5,6 +5,7 @@ tests/json_test: tests/json_test.o json.o
 	$(CC) -o $@ tests/json_test.o json.o
 
 test: tests/json_test
+	tests/json_test -s tests/test_schema2.json tests/test_file.json
 	tests/json_test -s tests/test_schema.json tests/test_file.json
 
 clean:
