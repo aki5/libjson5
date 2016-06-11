@@ -10,7 +10,7 @@ tests/randjson: tests/randjson.o
 test: tests/json_test tests/randjson
 	tests/json_test -s tests/test_schema2.json tests/test_file.json
 	tests/json_test -s tests/test_schema.json tests/test_file.json
-	for i in `seq 1 100`; do tests/randjson 2> tests/rand-schema.json > tests/rand.json && tests/json_test -s tests/rand-schema.json tests/rand.json; done
+	for i in `seq 1 1000`; do tests/randjson 2> tests/rand-schema.json > tests/rand.json && tests/json_test -s tests/rand-schema.json tests/rand.json; done
 	rm tests/rand.json tests/rand-schema.json
 
 clean:

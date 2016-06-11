@@ -22,7 +22,7 @@ enum {
 char *
 value(void)
 {
-	int i, len;
+	size_t i, len;
 	static char buf[256];
 	len = (lrand48()%16) * (lrand48()%16);
 	if(len > sizeof buf-1)
