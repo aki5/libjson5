@@ -28,7 +28,8 @@ enum {
 	JsonString = '"',
 	JsonNumber = '0',
 	JsonInteger = '1',
-	JsonSymbol = 'a',
+	JsonBoolean = 't',
+	JsonNull = 'n',
 	JsonReference = '#', // a resolved "$ref" object, 'off' field for this AST type holds the destination
 };
 

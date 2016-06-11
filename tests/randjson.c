@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+FILE *jsonfp;
+FILE *schfp;
 char *key = "child";
 char alpha[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -12,7 +14,7 @@ enum {
 	String,
 	Null,
 	Bool,
-	Array,
+//	Array,
 	Object,
 	NumTypes,
 };
@@ -27,6 +29,8 @@ value(void)
 		len = sizeof buf-1;
 	if(len > 0)
 		len = lrand48()%len;
+	if(len < 5)
+		len = 5;
 	for(i = 0; i < len; i++)
 		buf[i] = alpha[lrand48() % (sizeof alpha-1)];
 	buf[i] = '\0';
@@ -43,59 +47,82 @@ symbolgen(void)
 }
 
 void
-valuegen(int rnd)
+valuegen(int typ)
 {
 	static int depth;
-	int i, fix;
+	int i, rnd, fix;
 	depth++;
-	if(rnd == -1)
+	if(typ == -1)
 		rnd = lrand48()%NumTypes;
+	else
+		rnd = typ;
 	if(depth > 30)
-		rnd %= Array;
+		rnd %= Bool+1;
 	switch(rnd){
 	default:
 		abort();
 	case Number: // number
-		printf("%g", drand48());
+		fprintf(jsonfp, "%g", drand48());
+		if(typ == -1)fprintf(schfp, "{\"type\": \"number\"}");
 		break;
 	case Integer: // integer
 		fix = -(lrand48()%1);
-		printf("%ld", fix*lrand48());
+		fprintf(jsonfp, "%ld", fix*lrand48());
+		fprintf(schfp, "{\"type\": \"integer\"}");
 		break;
 	case String: // string
-		printf("\"%s\"", value());
+		fprintf(jsonfp, "\"%s\"", value());
+		fprintf(schfp, "{\"type\": \"string\"}");
 		break;
 	case Null: // symbol
-		printf("null");
+		fprintf(jsonfp, "null");
+		fprintf(schfp, "{\"type\": \"object\"}");
 		break;
 	case Bool: // symbol
 		fix = lrand48()%2;
 		if(fix == 1)
-			printf("true");
+			fprintf(jsonfp, "true");
 		else
-			printf("false");
+			fprintf(jsonfp, "false");
+		fprintf(schfp, "{\"type\": \"boolean\"}");
 		break;
+/*
 	case Array: // array
 		rnd = lrand48()%10;
 		fix = lrand48()%NumTypes;
-		printf("[");
+		fprintf(schfp, "{");
+		fprintf(schfp, "\"type\": \"array\",");
+		fprintf(schfp, "\"items\":{");
+		fprintf(jsonfp, "[");
 		for(i = 0; i < rnd; i++){
 			if(i != 0)
-				printf(",");
+				fprintf(jsonfp, ",");
 			valuegen(fix);
 		}
-		printf("]");
+		fprintf(jsonfp, "]");
+		fprintf(schfp, "}");
+		fprintf(schfp, "}");
 		break;
+*/
 	case Object: // object
 		rnd = lrand48()%10;
-		printf("{");
+		fprintf(schfp, "{");
+		fprintf(schfp, "\"type\": \"object\",");
+		fprintf(schfp, "\"properties\":{");
+		fprintf(jsonfp, "{");
 		for(i = 0; i < rnd; i++){
-			if(i != 0)
-				printf(",");
-			printf("\"%s\":", value());
+			if(i != 0){
+				fprintf(jsonfp, ",");
+				fprintf(schfp, ",");
+			}
+			char *key = value();
+			fprintf(jsonfp, "\"%s\":", key);
+			fprintf(schfp, "\"%s\":", key);
 			valuegen(-1);
 		}
-		printf("}");
+		fprintf(jsonfp, "}");
+		fprintf(schfp, "}");
+		fprintf(schfp, "}");
 		break;
 	}
 	depth--;
@@ -113,9 +140,12 @@ main(int argc, char *argv[])
 	numobjs = 1;
 	if(argc > 1)
 		numobjs = strtol(argv[1], NULL, 10);
+	jsonfp = stdout;
+	schfp = stderr;
 	for(i = 0; i < numobjs; i++){
 		valuegen(Object);
-		printf("\n");
+		fprintf(jsonfp, "\n");
+		fprintf(schfp, "\n");
 	}
 	return 0;
 }

@@ -17,7 +17,8 @@ isterminal(int c)
 	case JsonObject:
 	case JsonNumber:
 	case JsonString:
-	case JsonSymbol:
+	case JsonBoolean:
+	case JsonNull:
 	case JsonInteger:
 		return 1;
 	}
@@ -68,18 +69,18 @@ isbreak(int c)
 }
 
 static int
-issymbol(char *buf, int len)
+jsonsymbol(char *buf, int len)
 {
 	if(len == 4){
 		if(memcmp(buf, "true", 4) == 0)
-			return 1;
+			return JsonBoolean;
 		if(memcmp(buf, "null", 4) == 0)
-			return 1;
+			return JsonNull;
 	} else if(len == 5){
 		if(memcmp(buf, "false", 5) == 0)
-			return 1;
+			return JsonBoolean;
 	}
-	return 0;
+	return -1;
 }
 
 // notice that all the switch-case business and string scanning looks for ascii values < 128,
@@ -226,9 +227,7 @@ again:
 			}
 			*offp = str+1-buf;
 			*lenp = len-1;
-			if(issymbol(*tokp, str-*tokp+1))
-				return JsonSymbol;
-			return -1; // not a symbol, means error!
+			return jsonsymbol(*tokp, str-*tokp+1);
 		}
 	}
 	// set them here too, so that we don't re-read the last character indefinitely
@@ -392,7 +391,8 @@ jsonany(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
 	case JsonNumber:
 	case JsonInteger:
 	case JsonString:
-	case JsonSymbol:
+	case JsonBoolean:
+	case JsonNull:
 		patch = *astoff;
 		if(patch < jscap){
 			ast[patch].type = lt;
@@ -644,16 +644,20 @@ scmtype(JsonRoot *scmroot, int off)
 		return -1;
 
 	ast = scmroot->ast.buf + off;
-	if(ast->type != JsonString || ast->len < 2){
-		fprintf(stderr, "scmtype: value is not string\n");
+	buf = scmroot->str.buf + ast->off;
+	len = ast->len;
+	if(ast->type != JsonString || len < 2){
+		fprintf(stderr, "scmtype: value '%.*s' is not a valid type\n", len > 0 ? len : 0, buf);
 		return -1;
 	}
 
-	buf = scmroot->str.buf + ast->off + 1;
-	len = ast->len - 2;
+	buf++;
+	len -= 2;
 	if(len == 7){
 		if(memcmp(buf, "integer", 7) == 0)
 			return JsonInteger;
+		if(memcmp(buf, "boolean", 7) == 0)
+			return JsonBoolean;
 	} else if(len == 6){
 		if(memcmp(buf, "string", 6) == 0)
 			return JsonString;
@@ -665,7 +669,7 @@ scmtype(JsonRoot *scmroot, int off)
 		if(memcmp(buf, "array", 5) == 0)
 			return JsonArray;
 	}
-	fprintf(stderr, "scmtype: value is not string\n");
+	fprintf(stderr, "scmtype: value '%.*s' is not a valid type\n", len, buf);
 	return -1;
 }
 
@@ -686,7 +690,10 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 
 	// this is the actual type checking code, complex cases end here through recursion.
 	scmtyp = scmtype(scmroot, scmoff2);
-	if(docast[docoff].type != scmtyp && !(scmtyp == JsonNumber && docast[docoff].type == JsonInteger)){
+	if(docast[docoff].type != scmtyp
+	&& !(scmtyp == JsonNumber && docast[docoff].type == JsonInteger) // integer in doc is a valid number too
+	&& !(scmtyp == JsonObject && docast[docoff].type == JsonNull) // null in doc is a valid object
+	){
 		fprintf(stderr, "jsoncheck: doctype %c scmtype %c\n", docast[docoff].type, scmtyp);
 		return -1;
 	}
@@ -730,8 +737,9 @@ jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff)
 
 		scmoff2 = jsonwalk(scmroot, scmoff, "properties");
 		if(scmoff2 == -1){
-			fprintf(stderr, "jsoncheck: schema has no properties field\n");
-			return -1;
+			return 0; // no properties in schema means it can be any object..
+			//fprintf(stderr, "jsoncheck: schema has no properties field\n");
+			//return -1;
 		}
 
 		// to first key of the object.
