@@ -42,3 +42,4 @@ int jsonrefs(JsonRoot *docroot);
 void jsonsetname(char *filename);
 int jsonwalk(JsonRoot *root, int off, char *name);
 int jsonwalk2(JsonRoot *root, int off, char *name, int namelen);
+int jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen);

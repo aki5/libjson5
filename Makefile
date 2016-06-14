@@ -1,8 +1,20 @@
 
-CFLAGS=-I. -O2 -W -Wall
+CFLAGS=-I. -Os -fomit-frame-pointer -W -Wall
 
-tests/json_test: tests/json_test.o json.o
-	$(CC) -o $@ tests/json_test.o json.o
+LIBJSON_OFILES=\
+	json.o\
+	jsoncheck.o\
+	jsoncstr.o\
+	jsonindex.o\
+	jsonptr.o\
+	jsonrefs.o\
+	jsonwalk.o\
+
+libjson.a: $(LIBJSON_OFILES)
+	$(AR) r $@ $(LIBJSON_OFILES)
+
+tests/json_test: tests/json_test.o libjson.a
+	$(CC) -o $@ tests/json_test.o libjson.a
 
 tests/randjson: tests/randjson.o
 	$(CC) -o $@ tests/randjson.o
@@ -14,4 +26,4 @@ test: tests/json_test tests/randjson
 	rm tests/rand.json tests/rand-schema.json
 
 clean:
-	rm -f tests/json_test tests/randjson tests/rand.json tests/rand-schema.json tests/*.o *.o
+	rm -f libjson.a tests/json_test tests/randjson tests/rand.json tests/rand-schema.json tests/*.o *.o
