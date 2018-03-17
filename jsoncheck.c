@@ -8,7 +8,7 @@ static int
 scmtype(JsonRoot *scmroot, int off)
 {
 	JsonAst *ast;
-	char *buf;
+	const char *buf;
 	int len;
 
 	if(off == -1)

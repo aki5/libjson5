@@ -69,7 +69,7 @@ isbreak(int c)
 }
 
 static int
-jsonsymbol(char *buf, int len)
+jsonsymbol(const char *buf, int len)
 {
 	if(len == 4){
 		if(memcmp(buf, "true", 4) == 0)
@@ -86,9 +86,9 @@ jsonsymbol(char *buf, int len)
 // notice that all the switch-case business and string scanning looks for ascii values < 128,
 // hence there is no need to decode utf8 explicitly, it just works.
 static int
-jsonlex(char *buf, int *offp, int *lenp, char **tokp)
+jsonlex(const char *buf, int *offp, int *lenp, const char **tokp)
 {
-	char *str;
+	const char *str;
 	int len, qch;
 	int isinteger;
 
@@ -236,10 +236,10 @@ again:
 	return -1;
 }
 
-static int jsonany(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp);
+static int jsonany(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int *lenp);
 
 static int
-jsonarray(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
+jsonarray(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int *lenp)
 {
 	int patch, lt;
 	int ret;
@@ -295,7 +295,7 @@ nocomma:
 
 
 static int
-jsonobject(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
+jsonobject(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int *lenp)
 {
 	int patch, lt;
 	int ret;
@@ -374,9 +374,9 @@ jsonsetname(char *filename)
 }
 
 static int
-jsonany(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
+jsonany(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int *lenp)
 {
-	char *tok;
+	const char *tok;
 	int patch, lt;
 
 	switch(lt = jsonlex(buf, offp, lenp, &tok)){
@@ -411,7 +411,7 @@ jsonany(JsonAst *ast, int *astoff, int jscap, char *buf, int *offp, int *lenp)
 }
 
 int
-jsonparse(JsonRoot *root, char *buf, int len)
+jsonparse(JsonRoot *root, const char *buf, int len)
 {
 	JsonAst *ast;
 	int off, buflen, jsoff, jscap;

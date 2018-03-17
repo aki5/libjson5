@@ -8,7 +8,7 @@ struct JsonRoot {
 		int cap;
 	} ast;
 	struct {
-		char *buf;
+		const char *buf;
 		int len;
 		int cap;
 	} str;
@@ -37,9 +37,9 @@ int jsoncheck(JsonRoot *docroot, int docoff, JsonRoot *scmroot, int scmoff);
 char *jsoncstr(JsonRoot *root, int off);
 void jsonfree(JsonRoot *root);
 int jsonindex(JsonRoot *root, int off, int index);
-int jsonparse(JsonRoot *root, char *buf, int len);
+int jsonparse(JsonRoot *root, const char *buf, int len);
 int jsonrefs(JsonRoot *docroot);
 void jsonsetname(char *filename);
-int jsonwalk(JsonRoot *root, int off, char *name);
-int jsonwalk2(JsonRoot *root, int off, char *name, int namelen);
-int jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen);
+int jsonwalk(JsonRoot *root, int off, const char *name);
+int jsonwalk2(JsonRoot *root, int off, const char *name, int namelen);
+int jsonptr(JsonRoot *root, int off, const char *ptr, int ptrlen);

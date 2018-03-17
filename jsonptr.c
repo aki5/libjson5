@@ -6,7 +6,7 @@
 
 // walk a json-ptr
 int
-jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen)
+jsonptr(JsonRoot *root, int off, const char *ptr, int ptrlen)
 {
 	char *p;
 
@@ -16,11 +16,13 @@ jsonptr(JsonRoot *root, int off, char *ptr, int ptrlen)
 			fprintf(stderr, "jsonptr: could not walk %.*s\n", (int)(p-ptr), ptr);
 			return -1;
 		}
+		// memchr returned non-null, so p-ptr < ptrlen, so the following cannot underflow.
 		ptrlen -= p-ptr+1;
 		ptr = p+1;
 	}
 
-	off = jsonwalk2(root, off, ptr, ptrlen);
+	if(ptrlen > 0)
+		off = jsonwalk2(root, off, ptr, ptrlen);
 
 	return off;
 }

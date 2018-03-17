@@ -9,7 +9,8 @@ char *
 jsoncstr(JsonRoot *root, int i)
 {
 	JsonAst *ast;
-	char *buf, *str;
+	const char *buf;
+	char *str;
 
 	ast = root->ast.buf;
 	if(ast[i].type != JsonString){

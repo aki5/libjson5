@@ -5,10 +5,10 @@
 #include "json.h"
 
 int
-jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
+jsonwalk2(JsonRoot *root, int off, const char *name, int keylen)
 {
 	JsonAst *ast;
-	char *buf;
+	const char *buf;
 	int i;
 
 	if(off == -1)
@@ -58,7 +58,7 @@ jsonwalk2(JsonRoot *root, int off, char *name, int keylen)
 }
 
 int
-jsonwalk(JsonRoot *root, int off, char *name)
+jsonwalk(JsonRoot *root, int off, const char *name)
 {
 	return jsonwalk2(root, off, name, strlen(name));
 }
