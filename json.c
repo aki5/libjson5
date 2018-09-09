@@ -2,12 +2,41 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "json.h"
 
 #define nelem(x) (sizeof(x)/sizeof(x[0]))
 
 static __thread char *jsonfile = "";
 static __thread int jsonline;
+static __thread JsonRoot *jsonroot;
+
+typedef struct Slice Slice;
+struct Slice {
+	const char *p;
+	size_t len;
+};
+
+static int
+slice_at(Slice b, size_t i)
+{
+	assert(b.len > i);
+	return b.p[i]; 
+}
+
+static Slice
+slice_skip(Slice b)
+{
+	assert(b.len >= 1);
+	return (Slice){b.p+1, b.len-1};
+}
+
+static Slice
+slice_skipn(Slice b, size_t off)
+{
+	assert(b.len >= off);
+	return (Slice){b.p+off, b.len-off};
+}
 
 static int
 isterminal(int c)
@@ -88,62 +117,48 @@ jsonsymbol(const char *buf, int len)
 static int
 jsonlex(const char *buf, int *offp, int *lenp, const char **tokp)
 {
-	const char *str;
-	int len, qch;
-	int isinteger;
+	int quotechar;
 
-	str = buf + *offp;
-	len = *lenp;
+	Slice str = { buf+*offp, *lenp };
 
 again:
-	while(len > 0 && iswhite(*str)){
-		if(*str == '\n')
+	while(str.len > 0 && iswhite(slice_at(str, 0))){
+		if(slice_at(str, 0) == '\n')
 			jsonline++;
-		str++;
-		len--;
+		str = slice_skip(str);
 	}
-	*tokp = str;
-	if(len > 0){
+	*tokp = str.p;
+	if(str.len > 0){
 		// a number is an integer unless it has '.' or 'E' in it.
-		isinteger = 1;
-		switch(*str){
+		int isinteger = 1;
+		switch(slice_at(str, 0)){
 
 		// c and c++ style comments, not standard either
 		case '/':
-			if(len > 1 && str[1] == '/'){
-				while(len > 1 && str[1] != '\n'){
-					str++;
-					len--;
-				}
+			if(str.len > 1 && slice_at(str, 1) == '/'){
+				while(str.len > 1 && slice_at(str, 1) != '\n')
+					str = slice_skip(str);
 				// advance to newline
-				if(len > 0){
-					str++;
-					len--;
-				}
+				if(str.len > 0)
+					str = slice_skip(str);
 				// skip newline
-				if(len > 0 && *str == '\n'){
+				if(str.len > 0 && slice_at(str, 0) == '\n'){
 					jsonline++;
-					str++;
-					len--;
+					str = slice_skip(str);
 				}
 				goto again;
-			} else if(len > 1 && str[1] == '*'){
-				while(len > 1 && !(str[0] == '*' && str[1] == '/')){
-					if(str[1] == '\n')
+			} else if(str.len > 1 && slice_at(str, 1) == '*'){
+				while(str.len > 1 && !(slice_at(str, 0) == '*' && slice_at(str, 1) == '/')){
+					if(slice_at(str, 1) == '\n')
 						jsonline++;
-					str++;
-					len--;
+					str = slice_skip(str);
 				}
 				// skip '*'
-				if(len > 0){
-					str++;
-					len--;
-				}
+				if(str.len > 0)
+					str = slice_skip(str);
 				// skip '/'
-				if(len > 0){
-					str++;
-					len--;
-				}
+				if(str.len > 0)
+					str = slice_skip(str);
 				goto again;
 			}
 			goto caseself;
@@ -155,84 +170,85 @@ again:
 		case ':':
 		case ',':
 		caseself:
-			*offp = str+1-buf;
-			*lenp = len-1;
-			return *str;
+			*offp = str.p+1-buf;
+			*lenp = str.len-1;
+			return slice_at(str, 0);
 
 		// it may be number, look at the next character and decide.
 		case '.':
 			isinteger = 0;
 		case '+': case '-':
-			if(len < 2)
+			if(str.len < 2)
 				goto caseself;
-			if(str[1] < '0' || str[1] > '9')
+			if(slice_at(str, 1) < '0' || slice_at(str, 1) > '9')
 				goto caseself;
-			str++;
-			len--;
+			str = slice_skip(str);
 			/* fall through */
 
 		// the number matching algorithm is a bit fast and loose, but it does the business.
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			while(len > 1){
-				if(!isnumber(str[1]))
+			while(str.len > 1){
+				if(!isnumber(slice_at(str, 1)))
 					break;
-				if(str[1] == '.' || str[1] == 'e' || str[1] == 'E')
+				if(slice_at(str, 1) == '.' || slice_at(str, 1) == 'e' || slice_at(str, 1) == 'E')
 					isinteger = 0;
-				str++;
-				len--;
+				str = slice_skip(str);
 			}
-			*offp = str+1-buf;
-			*lenp = len-1;
+			*offp = str.p+1-buf;
+			*lenp = str.len-1;
 			return isinteger ? JsonInteger : JsonNumber;
 
 		// nonstandard single quote strings..
 		case '\'':
-			qch = '\'';
+			quotechar = '\'';
 			goto casestr;
 
 		// string constant, detect and skip escapes but don't interpret them
 		case '"':
-			qch = '"';
+			quotechar = '"';
 		casestr:
-			while(len > 1 && str[1] != qch){
-				if(len > 1 && str[1] == '\\'){
-					switch(str[2]){
+			while(str.len > 1 && slice_at(str, 1) != quotechar){
+				if(str.len > 2 && slice_at(str, 1) == '\\'){
+					switch(slice_at(str, 2)){
 					default:
-						str++;
-						len--;
+						str = slice_skip(str);
 						break;
 					case 'u':
-						str += len < 5 ? len : 5;
-						len -= len < 5 ? len : 5;
+						str = slice_skipn(str, str.len < 5 ? str.len : 5);
 						break;
 					}
 				}
-				str++;
-				len--;
+				if(str.len > 0)
+					str = slice_skip(str);
 			}
-			if(len > 1 && str[1] == qch){
-				str++;
-				len--;
-			}
-			*offp = str+1-buf;
-			*lenp = len-1;
+			// skip to the closing quote.
+			if(str.len > 1 && slice_at(str, 1) == quotechar)
+				str = slice_skip(str);
+			// skip the closing quote.
+			if(str.len > 0)
+				str = slice_skip(str);
+			*offp = str.p-buf;
+			*lenp = str.len;
 			return JsonString;
 
 		// symbol is any string of nonbreak characters not starting with a number
 		default:
-			while(len > 1 && !isbreak(str[1])){
-				str++;
-				len--;
-			}
-			*offp = str+1-buf;
-			*lenp = len-1;
-			return jsonsymbol(*tokp, str-*tokp+1);
+			while(str.len > 1 && !isbreak(slice_at(str, 1)))
+				str = slice_skip(str);
+			if(str.len > 0)
+				str = slice_skip(str);
+			*offp = str.p-buf;
+			*lenp = str.len;
+			// todo: a bug here. if symbol is at the end of file, the length field is one short.
+			return jsonsymbol(*tokp, str.p-*tokp); 
 		}
 	}
-	// set them here too, so that we don't re-read the last character indefinitely
-	*offp = str+1-buf;
-	*lenp = len-1;
+	// update off & len here so that we don't re-read the last character indefinitely
+	if(str.len > 0)
+		str = slice_skip(str);
+	*offp = str.p-buf;
+	*lenp = str.len;
 	return -1;
 }
 
@@ -256,15 +272,17 @@ jsonarray(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int 
 	ret = '[';
 	for(;;){
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
-nocomma:
 		if(lt == -1){
 			ret = -1;
 			break;
 		}
 		if(lt == ']')
 			break;
-		if(!isterminal(lt))
-			fprintf(stderr, "%s:%d: jsonarray: got '%c', expecting object or terminal\n", jsonfile, jsonline, lt);
+		if(!isterminal(lt)){
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonarray: got '%c', expecting object or terminal\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
+		}
 
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
 		if(lt == -1){
@@ -274,8 +292,9 @@ nocomma:
 		if(lt == ']')
 			break;
 		if(lt != ','){
-			fprintf(stderr, "%s:%d: jsonarray: got '%c', expecting ','\n", jsonfile, jsonline, lt);
-			goto nocomma;
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonarray: got '%c', expecting ','\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
 		}
 	}
 	if(patch < jscap)
@@ -312,31 +331,39 @@ jsonobject(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int
 	ret = '{';
 	for(;;){
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
-nocomma:
 		if(lt == -1){
 			ret = -1;
 			break;
 		}
 		if(lt == '}')
 			break;
-		if(lt != JsonString)
-			fprintf(stderr, "%s:%d: jsonobject: got '%c', expecting key ('\"')\n", jsonfile, jsonline, lt);
+		if(lt != JsonString){
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonobject: got '%c', expecting key ('\"')\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
+		}
 
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
 		if(lt == -1){
 			ret = -1;
 			break;
 		}
-		if(lt != ':')
-			fprintf(stderr, "%s:%d: jsonobject: got '%c', expecting colon (':')\n", jsonfile, jsonline, lt);
+		if(lt != ':'){
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonobject: got '%c', expecting colon (':')\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
+		}
 
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
 		if(lt == -1){
 			ret = -1;
 			break;
 		}
-		if(!isterminal(lt))
-			fprintf(stderr, "%s:%d: jsonobject: got '%c', expecting object or terminal\n", jsonfile, jsonline, lt);
+		if(!isterminal(lt)){
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonobject: got '%c', expecting object or terminal\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
+		}
 
 		lt = jsonany(ast, astoff, jscap, buf, offp, lenp);
 		if(lt == -1){
@@ -346,8 +373,9 @@ nocomma:
 		if(lt == '}')
 			break;
 		if(lt != ','){
-			fprintf(stderr, "%s:%d: jsonobject: got '%c', expecting ','\n", jsonfile, jsonline, lt);
-			goto nocomma;
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonobject: got '%c', expecting ','\n", jsonfile, jsonline, lt);
+			ret = -1;
+			break;
 		}
 
 	}
@@ -403,9 +431,7 @@ jsonany(JsonAst *ast, int *astoff, int jscap, const char *buf, int *offp, int *l
 		*astoff = patch+1;
 		return lt;
 	default:
-		fprintf(stderr, "%s:%d: jsonany: unexpected token: '", jsonfile, jsonline);
-		fwrite(tok, *offp - (tok-buf), 1, stderr);
-		fprintf(stderr, "'\n");
+		snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "%s:%d: jsonany: unexpected token: '%*.s'\n", jsonfile, jsonline, (int)(*offp - (tok-buf)), tok);
 		return -1;
 	}
 }
@@ -415,6 +441,9 @@ jsonparse(JsonRoot *root, const char *buf, int len)
 {
 	JsonAst *ast;
 	int off, buflen, jsoff, jscap;
+
+	jsonroot = root;
+	jsonroot->errstr[0] = '\0';
 
 	ast = root->ast.buf;
 	jscap = root->ast.cap;
@@ -430,7 +459,7 @@ jsonparse(JsonRoot *root, const char *buf, int len)
 		jscap = jsoff;
 		jsonline = 1;
 		if((ast = realloc(ast, jscap * sizeof ast[0])) == NULL){
-			fprintf(stderr, "jsonroot: cannot malloc ast\n");
+			snprintf(jsonroot->errstr, sizeof jsonroot->errstr, "jsonroot: cannot malloc ast\n");
 			return -1;
 		}
 

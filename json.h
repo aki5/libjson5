@@ -12,6 +12,7 @@ struct JsonRoot {
 		int len;
 		int cap;
 	} str;
+	char errstr[128];
 };
 
 struct JsonAst {
